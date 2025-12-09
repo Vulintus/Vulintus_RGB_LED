@@ -15,7 +15,7 @@
 
 
 // Included libraries. // 
-#include <Vulintus_OmniTrak.h>                  // Vulintus OmniTrak catch-all library.
+#include <Vulintus_RGB_LED.h>                  // Vulintus OmniTrak catch-all library.
 
 // Light queue. //
 #ifndef LIGHT_QUEUE_SIZE
