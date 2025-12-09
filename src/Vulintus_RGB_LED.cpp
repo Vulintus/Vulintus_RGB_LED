@@ -1,3 +1,12 @@
+/*  
+    Vulintus_RGB_LED.cpp
+
+    copyright (c) 2025, Vulintus, Inc.
+
+    See "Vulintus_RGB_LED.h" for documentation and change log.
+
+*/
+
 
 #include "./Vulintus_RGB_LED.h"
 

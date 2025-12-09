@@ -1,7 +1,7 @@
 /*  
     Vulintus_RGB_LED.h
 
-    copyright (c) 2025, Vulintus, Inc. All rights reserved.
+    copyright (c) 2025, Vulintus, Inc.
 
     Control library for RGB and RGBW LEDs with support for various LED types,
     color manipulation, brightness control, and effects.
