@@ -37,8 +37,8 @@ const uint16_t STIM_PAUSE = 250;        // Set the stimulus duration.
 const uint8_t PWM_VAL = 50;             // PWM value for all RGBW channels.
 
 const uint32_t HEARTBEAT_DUR = 5000;    // Pulse the heartbeat for 5 seconds.
-const uint32_t HEARTBEAT_PERIOD = 20;   // Update the heartbeat every 20 milliseconds.
-const uint8_t HEARTBEAT_STEPS = 25;     // Steps per heartbeat pulse.
+const uint32_t HEARTBEAT_PERIOD = 50;   // Update the heartbeat every 20 milliseconds.
+const uint8_t HEARTBEAT_STEPS = 16;     // Steps per heartbeat pulse.
 
 
 // INITIALIZATION ************************************************************// 
@@ -82,13 +82,13 @@ void loop() {
   }
   delay(1000);                                          // Pause for 1 second.
   
-  led.heartbeat_start(0xFF0000, 0x0000FF);              // Start a heartbeat pulsing between red and blue.
+  led.heartbeat_start(0x0F0000, 0x00000F);              // Start a heartbeat pulsing between red and blue.
   uint32_t heartbeat_timer = millis() + HEARTBEAT_DUR;  // Set a timer for how long to pulse the heartbeat.
   while (millis() < heartbeat_timer) {                  // Loop until the heartbeat timer expires.
     led.timing_check();                                 // Check for heartbeat updates.
     delay(5);                                           // Pause for 5 milliseconds to avoid overwhelming the processor.
   }
-  led.light_off();
+  led.light_off();                                      // Turn off the heartbeat.
   delay(1000);                                          // Pause for 1 second.
   
 }

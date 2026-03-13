@@ -207,8 +207,14 @@ void Vulintus_RGB_LED::heartbeat_start(uint32_t rgbw_lo, uint32_t rgbw_hi)
 // Start the heartbeat effect (use current heartbeat parameters).
 void Vulintus_RGB_LED::heartbeat_start(void)
 {
+    int16_t max_diff = 0;
     for (uint8_t i = 0; i < 4; i++) {
         _heartbeat_values[i] = heartbeat.rgbw_low[i];
+        int16_t diff = abs((int16_t)heartbeat.rgbw_high[i] - (int16_t)heartbeat.rgbw_low[i]);
+        max_diff = max(max_diff, diff);
+    }
+    if (heartbeat.steps > max_diff) {
+        heartbeat.steps = max_diff;
     }
     _heartbeat_increasing = true;
     _heartbeat_step = 0;
