@@ -61,12 +61,16 @@ void Vulintus_RGB_LED::begin(void)
     };                                                  // List a rainbow sequence of colors.   
     uint8_t j = 0;                                      // Current color index.
     for (uint8_t i = 0; i < LIGHT_QUEUE_SIZE; i++) {    // Step through the colors to queue.    
-        cur_stim = i;                                   // Set the current light stimulus index.
-        set_rgb(rgb[j][0],rgb[j][1],rgb[j][2]);         // Set the color in the queue.
-        set_dur(STARTUP_STIM_DUR);                      // Set the startup stimulation duration for each.   
+        set_rgb(i, rgb[j][0],rgb[j][1],rgb[j][2]);      // Set the color in the queue.
+        set_dur(i, STARTUP_STIM_DUR);                   // Set the startup stimulation duration for each.   
         j++;                                            // Increment the color index.
         j %= sizeof(rgb)/3;                             // Make sure the color index doesn't overflow.
     }
+
+    // Set default values for the heartbeat.
+    heartbeat.rgbw_high[0] = 0xFF;       // Red high value (all other colors are off by default).
+    heartbeat.steps = 5;                 // Number of steps in the heartbeat effect.
+    heartbeat.period = 25;               // Time between steps in the heartbeat effect (milliseconds).
 }
 
 
@@ -81,11 +85,12 @@ void Vulintus_RGB_LED::set_polarity(bool led_on)
 // Show the currently-selected stimulus.
 void Vulintus_RGB_LED::light_on(void)
 {
-    _set_outputs();
+    _set_outputs(queue[cur_stim].rgbw);
     if (queue[cur_stim].dur < 65535) {
         _light_timer = millis() + queue[cur_stim].dur;
     }
     is_on = true;
+    _heartbeat_on = false;
 }       
 
 
@@ -115,34 +120,189 @@ void Vulintus_RGB_LED::light_off(void)
         _neopix->show();
     }
     _light_timer = 0;
+    _heartbeat_on = false;
     is_on = false;
 }     
 
 
-// Check for queue on/off events.
-void Vulintus_RGB_LED::timing_check(void)
+// Start the heartbeat effect (individual RGBW uint8_t values).
+void Vulintus_RGB_LED::heartbeat_start(uint8_t red_lo, uint8_t grn_lo, uint8_t blu_lo, 
+                    uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi)
 {
-    if ((_light_timer) && (millis() > _light_timer)) {
-        light_off();
+    heartbeat.rgbw_low[0] = red_lo;
+    heartbeat.rgbw_low[1] = grn_lo;
+    heartbeat.rgbw_low[2] = blu_lo;
+    heartbeat.rgbw_low[3] = 0;
+    heartbeat.rgbw_high[0] = red_hi;
+    heartbeat.rgbw_high[1] = grn_hi;
+    heartbeat.rgbw_high[2] = blu_hi;
+    heartbeat.rgbw_high[3] = 0;
+    heartbeat_start();
+}
+
+
+// Start the heartbeat effect (individual RGBW uint8_t values, assuming [0, 0, 0] for low value).
+void Vulintus_RGB_LED::heartbeat_start(uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi)
+{
+    heartbeat.rgbw_low[0] = 0;
+    heartbeat.rgbw_low[1] = 0;
+    heartbeat.rgbw_low[2] = 0;
+    heartbeat.rgbw_low[3] = 0;
+    heartbeat.rgbw_high[0] = red_hi;
+    heartbeat.rgbw_high[1] = grn_hi;
+    heartbeat.rgbw_high[2] = blu_hi;
+    heartbeat.rgbw_high[3] = 0;
+    heartbeat_start();
+}
+
+
+// Start the heartbeat effect (individual RGBW uint8_t values).
+void Vulintus_RGB_LED::heartbeat_start(uint8_t red_lo, uint8_t grn_lo, uint8_t blu_lo, uint8_t wht_lo, 
+                    uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi, uint8_t wht_hi)
+{
+    heartbeat.rgbw_low[0] = red_lo;
+    heartbeat.rgbw_low[1] = grn_lo;
+    heartbeat.rgbw_low[2] = blu_lo;
+    heartbeat.rgbw_low[3] = wht_lo;
+    heartbeat.rgbw_high[0] = red_hi;
+    heartbeat.rgbw_high[1] = grn_hi;
+    heartbeat.rgbw_high[2] = blu_hi;
+    heartbeat.rgbw_high[3] = wht_hi;
+    heartbeat_start();
+}
+
+
+// Start the heartbeat effect (individual RGBW uint8_t values, assuming [0, 0, 0, 0] for low value).
+void Vulintus_RGB_LED::heartbeat_start(uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi, uint8_t wht_hi)
+{
+    heartbeat.rgbw_low[0] = 0;
+    heartbeat.rgbw_low[1] = 0;
+    heartbeat.rgbw_low[2] = 0;
+    heartbeat.rgbw_low[3] = 0;
+    heartbeat.rgbw_high[0] = red_hi;
+    heartbeat.rgbw_high[1] = grn_hi;
+    heartbeat.rgbw_high[2] = blu_hi;
+    heartbeat.rgbw_high[3] = wht_hi;
+    heartbeat_start();
+}
+
+
+// Start the heartbeat effect (combined uint32 values).
+void Vulintus_RGB_LED::heartbeat_start(uint32_t rgbw_lo, uint32_t rgbw_hi) 
+{
+    if (rgbw_hi == 0) {
+        rgbw_hi = rgbw_lo;
+        rgbw_lo = 0;
     }
+    for (uint8_t i = 0; i < 3; i++) {
+        heartbeat.rgbw_low[i] = (rgbw_lo >> (8 * (2-i))) & 0xFF;
+        heartbeat.rgbw_high[i] = (rgbw_hi >> (8 * (2-i))) & 0xFF;
+    }
+    heartbeat.rgbw_low[3] = (rgbw_lo >> 24) & 0xFF;
+    heartbeat.rgbw_high[3] = (rgbw_hi >> 24) & 0xFF;
+    heartbeat_start();
+}
+
+
+// Start the heartbeat effect (use current heartbeat parameters).
+void Vulintus_RGB_LED::heartbeat_start(void)
+{
+    for (uint8_t i = 0; i < 4; i++) {
+        _heartbeat_values[i] = heartbeat.rgbw_low[i];
+    }
+    _heartbeat_increasing = true;
+    _heartbeat_step = 0;
+    _light_timer = millis() + heartbeat.period;    
+    _heartbeat_on = true;
+    is_on = true;    
+}
+
+
+
+// Check for queue on/off events.
+bool Vulintus_RGB_LED::timing_check(void)
+{
+    if (!is_on) {
+        return false;
+    }
+
+    if (_heartbeat_on) {
+        if (millis() > _light_timer) {        
+            for (uint8_t i = 0; i < 4; i++) {
+                int16_t step_size = ((int16_t) heartbeat.rgbw_high[i] - heartbeat.rgbw_low[i]) / heartbeat.steps;            
+                int16_t new_val;
+                if (_heartbeat_increasing) {
+                    new_val = (int16_t) _heartbeat_values[i] + step_size;
+                }
+                else {
+                    new_val = (int16_t) _heartbeat_values[i] - step_size;
+                }
+                new_val = constrain(new_val, min(heartbeat.rgbw_low[i], heartbeat.rgbw_high[i]), max(heartbeat.rgbw_low[i], heartbeat.rgbw_high[i]));
+                _heartbeat_values[i] = (uint8_t) new_val;  
+            }
+            _heartbeat_step++;
+            if (_heartbeat_step >= heartbeat.steps) {
+                _heartbeat_step = 0;
+                _heartbeat_increasing = !_heartbeat_increasing;
+            }
+            _set_outputs(_heartbeat_values);
+            _light_timer += heartbeat.period;
+        }
+    }
+    else if ((_light_timer) && (millis() > _light_timer)) {
+        light_off();
+        return false;
+    }
+
+    return true;
 }       
 
 
-// Set the RGB values (individual uint8).
+// Set the RGB values (specified stimulus index, individual uint8 values.).
+void Vulintus_RGB_LED::set_rgb(uint8_t stim_i, uint8_t red, uint8_t grn, uint8_t blu)
+{
+    cur_stim = stim_i;
+    set_rgbw(red, grn, blu, 0);
+}        
+
+
+// Set the RGB values (current stimulus index, individual uint8 values.).
 void Vulintus_RGB_LED::set_rgb(uint8_t red, uint8_t grn, uint8_t blu)
 {
-    set_rgbw(red, grn, blu);
+    set_rgbw(red, grn, blu, 0);
 }         
 
 
-// Set the RGB values (combined uint32).
+// Set the RGB values (specified stimulus index, combined uint32).
+void Vulintus_RGB_LED::set_rgb(uint8_t stim_i, uint32_t rgb)
+{
+    cur_stim = stim_i;
+    set_rgbw(rgb);
+}   
+
+
+// Set the RGB values (current stimulus index, combined uint32).
 void Vulintus_RGB_LED::set_rgb(uint32_t rgb)
 {
     set_rgbw(rgb);
 }         
 
 
-// Set the RGBW values (individual uint8).
+// Set the RGBW values (specified stimulus index, individual uint8).
+void Vulintus_RGB_LED::set_rgbw(uint8_t stim_i, uint8_t red, uint8_t grn, uint8_t blu, uint8_t wht) 
+{
+    cur_stim = stim_i;
+    queue[cur_stim].rgbw[0] = red;
+    queue[cur_stim].rgbw[1] = grn;
+    queue[cur_stim].rgbw[2] = blu;
+    queue[cur_stim].rgbw[3] = wht;
+    if (is_on) {
+        _set_outputs(queue[cur_stim].rgbw);
+    }
+}
+
+
+// Set the RGBW values (current stimulus index, individual uint8).
 void Vulintus_RGB_LED::set_rgbw(uint8_t red, uint8_t grn, uint8_t blu, uint8_t wht) 
 {
     queue[cur_stim].rgbw[0] = red;
@@ -150,24 +310,41 @@ void Vulintus_RGB_LED::set_rgbw(uint8_t red, uint8_t grn, uint8_t blu, uint8_t w
     queue[cur_stim].rgbw[2] = blu;
     queue[cur_stim].rgbw[3] = wht;
     if (is_on) {
-        _set_outputs();
+        _set_outputs(queue[cur_stim].rgbw);
     }
 }
 
 
-// Set the RGBW values (individual uint8).
+// Set the RGBW values (specified stimulus index, combined uint32).
+void Vulintus_RGB_LED::set_rgbw(uint8_t stim_i, uint32_t rgbw)
+{
+    cur_stim = stim_i;
+    set_rgbw(rgbw);
+}
+
+
+// Set the RGBW values (current stimulus index, combined uint32).
 void Vulintus_RGB_LED::set_rgbw(uint32_t rgbw)
 {
-    for (uint8_t i = 0; i < _num_chan; i++) {        
-        queue[cur_stim].rgbw[i] = rgbw >> 8*i;
+    for (uint8_t i = 0; i < 3; i++) {        
+        queue[cur_stim].rgbw[i] = (rgbw >> 8*(2-i)) & 0xFF;
     }
+    queue[cur_stim].rgbw[3] = (rgbw >> 24) & 0xFF;
     if (is_on) {
-        _set_outputs();
+        _set_outputs(queue[cur_stim].rgbw);
     }
 }
 
 
-// Set the stimulus duration.
+// Set the stimulus duration (specified stimulus index).
+void Vulintus_RGB_LED::set_dur(uint8_t stim_i, uint16_t stim_dur)
+{
+    cur_stim = stim_i;
+    queue[cur_stim].dur = stim_dur;
+}
+
+
+// Set the stimulus duration (current stimulus index).
 void Vulintus_RGB_LED::set_dur(uint16_t stim_dur)
 {
     queue[cur_stim].dur = stim_dur;
@@ -175,14 +352,14 @@ void Vulintus_RGB_LED::set_dur(uint16_t stim_dur)
 
 
 // Turn on the LED outputs.
-void Vulintus_RGB_LED::_set_outputs(void)
+void Vulintus_RGB_LED::_set_outputs(uint8_t rgbw[])
 {
 
     // If the NeoPixel pointer is null...
     if (_neopix == NULL) {                                      
         uint8_t pwm_val;                                        
         for (uint8_t i = 0; i < _num_chan; i++) { 
-            pwm_val = queue[cur_stim].rgbw[i];
+            pwm_val = rgbw[i];
             if (!_polarity) {
                 pwm_val = 255 - pwm_val;
             }
@@ -193,11 +370,7 @@ void Vulintus_RGB_LED::_set_outputs(void)
     // If this is a NeoPixel...
     else {                                        
         for (uint8_t i = 0; i < _num_neopix; i++) {
-            _neopix->setPixelColor(i, \
-                    queue[cur_stim].rgbw[0], \
-                    queue[cur_stim].rgbw[1], \
-                    queue[cur_stim].rgbw[2], \
-                    queue[cur_stim].rgbw[3]);
+            _neopix->setPixelColor(i, rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
         }              
         _neopix->show();
     }

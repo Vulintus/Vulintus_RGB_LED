@@ -60,8 +60,8 @@ void loop() {
   for (uint8_t j = 0; j < LIGHT_QUEUE_SIZE; j++) {    // Step through the queue size.
     for (uint8_t i = 0; i < NUM_NEOPIX; i++) {        // Step through each NeoPixel.
       cue_led[i].light_on(j);                         // Turn on each light.
-      while (cue_led[i].is_on) {                      // Loop until the LED turns off.
-        cue_led[i].timing_check();                    // Run an LED timing check.
+      while (cue_led[i].timing_check()) {             // Loop until the LED turns off.
+        delay(5);                                     // Pause for 5 milliseconds to avoid overwhelming the processor.
       }
       delay(stim_pause);                              // Pause in between flashes.
     }

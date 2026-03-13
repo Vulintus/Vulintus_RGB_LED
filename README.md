@@ -9,6 +9,7 @@ _Disclaimer: This README file was AI-generated, but checked for accuracy by a hu
 - **Dual LED Support**: Control both discrete RGB/RGBW LEDs (via PWM pins) and NeoPixel addressable LEDs
 - **Stimulus Queue System**: Pre-program different color/duration combinations
 - **Automatic Timing**: Built-in timer for automatic LED shutoff after specified durations
+- **Heartbeat Effect**: Built-in pulsing effect with configurable low/high colors, step count, and timing period
 - **Flexible Color Control**: Set colors using individual RGB/RGBW values or packed 32-bit integers
 - **Polarity Control**: Configure active-high or active-low LED control
 - **Predefined Colors**: Built-in color constants for common colors (red, yellow, green, cyan, blue, magenta)
@@ -120,6 +121,33 @@ void loop() {
 }
 ```
 
+### Example - Heartbeat Effect
+
+```cpp
+#include <Vulintus_RGB_LED.h>
+
+#define PIN_LED_R  9
+#define PIN_LED_G  10
+#define PIN_LED_B  11
+
+Vulintus_RGB_LED led(PIN_LED_R, PIN_LED_G, PIN_LED_B);
+
+void setup() {
+  led.begin();
+
+  // Configure heartbeat timing
+  led.heartbeat.steps = 8;          // Number of brightness steps per ramp
+  led.heartbeat.period = 20;        // Milliseconds between steps
+
+  // Pulse from off (low) to bright red (high)
+  led.heartbeat_start(0, 0, 0, 255, 0, 0);
+}
+
+void loop() {
+  led.timing_check();               // Advances heartbeat animation
+}
+```
+
 ### Example - Stimulus Queue
 
 ```cpp
@@ -187,8 +215,28 @@ Turn on the LED using a specific stimulus from the queue.
 #### `void light_off(void)`
 Immediately turn off the LED.
 
-#### `void timing_check(void)`
-Check if the LED should automatically turn off based on the programmed duration. Call this regularly in `loop()`.
+#### `void heartbeat_start(uint8_t red_lo, uint8_t grn_lo, uint8_t blu_lo, uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi)`
+Start heartbeat using explicit RGB low/high values.
+
+#### `void heartbeat_start(uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi)`
+Start heartbeat from RGB low = (0, 0, 0) to the specified RGB high values.
+
+#### `void heartbeat_start(uint8_t red_lo, uint8_t grn_lo, uint8_t blu_lo, uint8_t wht_lo, uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi, uint8_t wht_hi)`
+Start heartbeat using explicit RGBW low/high values.
+
+#### `void heartbeat_start(uint8_t red_hi, uint8_t grn_hi, uint8_t blu_hi, uint8_t wht_hi)`
+Start heartbeat from RGBW low = (0, 0, 0, 0) to the specified RGBW high values.
+
+#### `void heartbeat_start(uint32_t rgbw_lo, uint32_t rgbw_hi = 0x00000000)`
+Start heartbeat using packed 32-bit RGBW values. If `rgbw_hi` is omitted or 0, `rgbw_lo` is used as the high value and low is set to 0.
+
+#### `void heartbeat_start(void)`
+Start heartbeat using current values in `heartbeat` configuration.
+
+#### `bool timing_check(void)`
+Service LED timing and heartbeat updates. Call this regularly in `loop()`.
+- Returns **true** while a timed light or heartbeat is active
+- Returns **false** when the LED is off or has timed out
 
 #### `void set_rgb(uint8_t red, uint8_t grn, uint8_t blu)`
 Set the RGB color values (0-255) for the current stimulus.
@@ -220,6 +268,13 @@ Status flag indicating whether the LED is currently on.
 
 #### `vulintus_rgbw_stim_t queue[LIGHT_QUEUE_SIZE]`
 Array of stimulus parameters. Each element contains RGB/RGBW values and duration.
+
+#### `vulintus_rgbw_heartbeat_t heartbeat`
+Heartbeat effect parameters.
+- **rgbw_low[4]**: Low endpoint color (R, G, B, W)
+- **rgbw_high[4]**: High endpoint color (R, G, B, W)
+- **steps**: Number of interpolation steps per half-cycle
+- **period**: Milliseconds between heartbeat steps
 
 ### Predefined Color Constants
 
@@ -265,6 +320,11 @@ For questions, issues, or contributions:
 - **Website**: [https://www.vulintus.com](https://www.vulintus.com)
 
 ## Changelog
+
+### Version 0.2.0 (2026-03-13)
+- Added heartbeat effect support
+- Added `heartbeat_start(...)` function overloads
+- Added public `heartbeat` parameter structure for effect configuration
 
 ### Version 0.1.0 (2025-12-09)
 - Initial release

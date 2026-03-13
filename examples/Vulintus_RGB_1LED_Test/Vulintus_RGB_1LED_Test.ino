@@ -31,18 +31,14 @@
 #else                                                                     // Otherwise, for basic RGB LEDs...
   Vulintus_RGB_LED led(PIN_LED_R, PIN_LED_G, PIN_LED_B);                  // Use only the RGB pins.
 #endif
-enum : uint8_t {
-  COLOR_RED = 0,
-  COLOR_YELLOW = 1,
-  COLOR_GREEN = 2,
-  COLOR_CYAN = 3,
-  COLOR_BLUE = 4,
-  COLOR_MAGENTA = 5,
-};                                                                        // Create indices for colors.
 
-const uint16_t STIM_DUR = 250;      // Set the stimulus duration.
-const uint16_t STIM_PAUSE = 250;    // Set the stimulus duration.
-const uint8_t PWM_VAL = 50;         // PWM value for all RGBW channels.
+const uint16_t STIM_DUR = 250;          // Set the stimulus duration.
+const uint16_t STIM_PAUSE = 250;        // Set the stimulus duration.
+const uint8_t PWM_VAL = 50;             // PWM value for all RGBW channels.
+
+const uint32_t HEARTBEAT_DUR = 5000;    // Pulse the heartbeat for 5 seconds.
+const uint32_t HEARTBEAT_PERIOD = 20;   // Update the heartbeat every 20 milliseconds.
+const uint8_t HEARTBEAT_STEPS = 25;     // Steps per heartbeat pulse.
 
 
 // INITIALIZATION ************************************************************// 
@@ -66,18 +62,33 @@ void setup() {
     j++;                                              // Increment the color index.
     j %= sizeof(rgb)/3;                               // Make sure the color index doesn't overflow.
   }
+
+  // Initialize the heartbeat parameters.
+  led.heartbeat.steps = HEARTBEAT_STEPS;
+  led.heartbeat.period = HEARTBEAT_PERIOD;
+
 }
 
 
 // MAIN LOOP *****************************************************************// 
 void loop() {
 
-  for (uint8_t i = 0; i < LIGHT_QUEUE_SIZE; i++) {    // Step through the queue size.
-    led.light_on(i);                                  // Turn on each light.
-    while (led.is_on) {                               // Loop until the LED turns off.
-      led.timing_check();                             // Run an LED timing check.
+  for (uint8_t i = 0; i < LIGHT_QUEUE_SIZE; i++) {      // Step through the queue size.
+    led.light_on(i);                                    // Turn on each light.
+    while (led.timing_check()) {                        // Loop until the LED turns off.
+      delay(5);                                         // Pause for 5 milliseconds to avoid overwhelming the processor.
     }
-    delay(STIM_PAUSE);                                // Pause in between flashes.
+    delay(STIM_PAUSE);                                  // Pause in between flashes.
   }
-  delay(1000);                                        // Pause for 1 second.
+  delay(1000);                                          // Pause for 1 second.
+  
+  led.heartbeat_start(0xFF0000, 0x0000FF);              // Start a heartbeat pulsing between red and blue.
+  uint32_t heartbeat_timer = millis() + HEARTBEAT_DUR;  // Set a timer for how long to pulse the heartbeat.
+  while (millis() < heartbeat_timer) {                  // Loop until the heartbeat timer expires.
+    led.timing_check();                                 // Check for heartbeat updates.
+    delay(5);                                           // Pause for 5 milliseconds to avoid overwhelming the processor.
+  }
+  led.light_off();
+  delay(1000);                                          // Pause for 1 second.
+  
 }
